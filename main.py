@@ -2,7 +2,6 @@ from keys import *
 from functions import *
 from googleapiclient.discovery import build
 import pandas as pd
-import numpy as np
 
 TICKER = "AMZN"
 
@@ -56,4 +55,5 @@ with build("youtube", "v3", developerKey=API_KEY) as service:
     df = df.join(channel_df, on="Channel ID")
     df.set_index("VideoID", inplace=True)
 
+    # Output to Excel
     df.to_excel("output.xlsx", engine="xlsxwriter")
