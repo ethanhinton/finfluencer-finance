@@ -3,6 +3,19 @@ from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFoun
 from googleapiclient.errors import HttpError
 import asyncio
 
+# Changes video duration from PTxMxS to MM:SS       
+def format_duration(duration):
+    split = duration[2:].split("M")
+    minutes = split[0]
+
+    seconds = split[1][:-1]
+    if len(seconds) == 0:
+        seconds = "00"
+    elif len(seconds) == 1:
+        seconds = f"0{seconds}"
+
+    return f"{minutes}:{seconds}"
+
 
 def extract_vid_data(video):
     out = [
@@ -12,7 +25,7 @@ def extract_vid_data(video):
         (video["snippet"]["tags"] if "tags" in video["snippet"].keys() else ""),
         video["snippet"]["publishedAt"],
         video["snippet"]["thumbnails"]["high"]["url"],
-        video["contentDetails"]["duration"],
+        format_duration(video["contentDetails"]["duration"]),
         int(video["statistics"]["viewCount"]),
         (int(video["statistics"]["likeCount"]) if "likeCount" in video["statistics"].keys() else ""),
         int(video["statistics"]["commentCount"]),
@@ -57,5 +70,4 @@ def get_comments(video_id, service):
         print(f"Error status code : {e.status_code}, reason : {e.reason}")
         return [f"Error when retrieving comments : {e.reason}"]
     
-        
 
