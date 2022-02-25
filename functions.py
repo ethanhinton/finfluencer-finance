@@ -1,21 +1,28 @@
 from youtube_transcript_api import YouTubeTranscriptApi as trans
 from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
 from googleapiclient.errors import HttpError
-import asyncio
 
 # Changes video duration from PTxMxS to MM:SS       
 def format_duration(duration):
-    split = duration[2:].split("M")
-    minutes = split[0]
+    cropped = duration[2:-1]
+    cropped = cropped.replace("H", ":").replace("M", ":")
+    parts = cropped.split(":")
 
-    seconds = split[1][:-1]
-    if len(seconds) == 0:
-        seconds = "00"
-    elif len(seconds) == 1:
-        seconds = f"0{seconds}"
-
-    return f"{minutes}:{seconds}"
-
+    if len(parts) == 3:
+        pass
+    else:
+        symbols = ["H", "M", "S"]
+        for i, symbol in enumerate(symbols):
+            if symbol not in duration:
+                parts.insert(i, "00")
+    
+    out = []
+    for val in parts:
+        if len(val) != 2:
+            val = "0" + val
+        out.append(val)
+    
+    return ":".join(out)
 
 def extract_vid_data(video):
     out = [
