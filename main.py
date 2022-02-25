@@ -15,7 +15,7 @@ with build("youtube", "v3", developerKey=API_KEY) as service:
     comments = service.commentThreads()
 
     # Generate Search request object
-    request = search.list(part=["snippet"], q=f"{TICKER} stock", order="relevance", maxResults=50, type="video")
+    request = search.list(part=["snippet"], q=f"{TICKER} stock", order="date", maxResults=50, type="video", videoDuration="long")
 
     # Call API and obtain response
     search_result = get_data(request)
