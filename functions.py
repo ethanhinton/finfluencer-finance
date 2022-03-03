@@ -34,8 +34,8 @@ def extract_vid_data(video):
         video["snippet"]["thumbnails"]["high"]["url"],
         format_duration(video["contentDetails"]["duration"]),
         int(video["statistics"]["viewCount"]),
-        (int(video["statistics"]["likeCount"]) if "likeCount" in video["statistics"].keys() else ""),
-        int(video["statistics"]["commentCount"]),
+        (int(video["statistics"]["likeCount"]) if "likeCount" in video["statistics"].keys() else "Likes Disabled"),
+        (int(video["statistics"]["commentCount"]) if "commentCount" in video["statistics"].keys() else "Comments Disabled"),
         video["snippet"]["channelTitle"],
         video["snippet"]["channelId"]
     ]
