@@ -16,7 +16,7 @@ class CommentsDisabledError(APIError):
 def check_keyerror_cause(response):
     if type(response) == list:
         response = response[0]
-    if "errors" in response.keys():
+    if "error" in response.keys():
         reason = response["error"]["errors"][0]["reason"]
         if reason == "quotaExceeded":
             raise QuotaExceededError("The daily API quota has been exceeded")
