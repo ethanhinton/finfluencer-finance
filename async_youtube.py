@@ -1,7 +1,7 @@
 import asyncio
 import aiohttp
 from keys import API_KEY
-from exceptions import QuotaExceededError, APIError
+from exceptions import QuotaExceededError, APIError, CommentsDisabledError, check_keyerror_cause
 
 class AsyncYoutube:
     
@@ -26,8 +26,7 @@ class AsyncYoutube:
     async def vid_ids_multi_duration(self, query, max_results=50, order="date", durations=["short", "medium", "long"]):
         # Call API to search for query with each duration filter
         tasks = [self.session.get(f"{self.base_url}/search?part=snippet&maxResults={max_results}&q={query.replace(' ', '%20')}&type=video&order={order}&videoDuration={duration}&key={self.api_key}") for duration in durations]
-        
-
+    
         responses = await asyncio.gather(*tasks)
         results = [await response.json() for response in responses]
 
@@ -35,20 +34,7 @@ class AsyncYoutube:
         try:
             cut_down = list(map(lambda x: x["items"], results))
         except KeyError:
-            try:
-                if "error" in results[0].keys():
-                    reason = results[0]["error"]["errors"][0]["reason"]
-                    if reason == "quotaExceeded":
-                        raise QuotaExceededError
-                    else:
-                        raise APIError(reason)
-            except QuotaExceededError:
-                print("Daily API quota exceeded, wait 24 hours for the quota to replenish")
-                quit()
-            except APIError:
-                print("There was an error with the YouTube Data API")
-                quit()
-        
+            check_keyerror_cause(results)
 
         # Create one long list of videos (reducing dimension of list of lists)
         videos = []
@@ -59,7 +45,7 @@ class AsyncYoutube:
         vid_ids = list(map(lambda x : x["id"]["videoId"], videos))
         return vid_ids
 
-    # Gets top level comments for one video --FINISH--
+    # Gets top level comments for one video
     async def get_comments(self, vid_id):
         try:
             response = await self.session.get(f"{self.base_url}/commentThreads?part=snippet&maxResults=10000&videoId={vid_id}&key={self.api_key}")
@@ -68,9 +54,22 @@ class AsyncYoutube:
         
         response = await response.json()
 
-        items = response["items"]
+        try:
+            items = response["items"]
+        except KeyError as e:
+            try:
+                check_keyerror_cause(response)
+            except CommentsDisabledError:
+                return []
 
         return list(map(lambda x: x['snippet']['topLevelComment']['snippet']['textOriginal'], items))
+    
+    async def get_comments_multi_videos(self, vid_ids):
+        tasks = [self.get_comments(vid_id) for vid_id in vid_ids]
+
+        responses = await asyncio.gather(*tasks)
+
+        return responses
 
 async def main():
     async with aiohttp.ClientSession() as session:
@@ -79,10 +78,8 @@ async def main():
         queries = [ticker+" stock" for ticker in tickers]
         vid_ids = await api.get_vid_ids(queries, video_duration=["short", "medium", "long"])
 
-        for vid_id in vid_ids:
-            comments = await api.get_comments(vid_id)
-            print(comments)
-        
+        print(await api.get_comments_multi_videos(vid_ids))
+
 asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 asyncio.run(main())
 
