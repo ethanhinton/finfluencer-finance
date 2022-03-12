@@ -1,6 +1,7 @@
 from youtube_transcript_api import YouTubeTranscriptApi as trans
 from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
 from googleapiclient.errors import HttpError
+import pandas as pd
 
 # Changes video duration from PTxMxS to MM:SS       
 def format_duration(duration):
@@ -42,10 +43,10 @@ def extract_vid_data(video):
     return out
 
 def extract_channel_data(channel):
-    out = [
+    out = (
         channel["id"],
         int(channel["statistics"]["subscriberCount"]) if channel["statistics"]["hiddenSubscriberCount"] == False else "Hidden"
-    ]
+    )
     return out    
 
 def get_transcript(video_id):
@@ -77,4 +78,22 @@ def get_comments(video_id, service):
         print(f"Error status code : {e.status_code}, reason : {e.reason}")
         return [f"Error when retrieving comments : {e.reason}"]
     
+def generate_dataframe(vid_data, comments_data, transcript_data, channel_data, index="VideoID"):
+    # Extract data, collect into a dataframe, and save to csv file
+    body = list(map(extract_vid_data, vid_data))
+    headers = ["VideoID", "Title", "Description", "Tags", "Publish Date", "Thumbnail", "Duration", "Views", "Likes", "Number of Comments", "Channel Name", "Channel ID"]
+    df = pd.DataFrame(data=body, columns=headers)
+    df["Comments"] = comments_data
+    df["Transcript"] = transcript_data
+
+    # Extract channel data into a separate dataframe and join with main dataframe by channel ID (this is so each of multiple videos from the same channel have subscriber count in the output file)
+    body = list(map(extract_channel_data, channel_data))
+    headers = ["Channel ID", "Subscriber Count"]
+    channel_df = pd.DataFrame(data=body, columns=headers)
+    channel_df.set_index("Channel ID", inplace=True)
+
+    df = df.join(channel_df, on="Channel ID")
+
+    return df.set_index(index, inplace=True)
+
 
