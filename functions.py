@@ -80,20 +80,18 @@ def get_comments(video_id, service):
     
 def generate_dataframe(vid_data, comments_data, transcript_data, channel_data, index="VideoID"):
     # Extract data, collect into a dataframe, and save to csv file
-    body = list(map(extract_vid_data, vid_data))
     headers = ["VideoID", "Title", "Description", "Tags", "Publish Date", "Thumbnail", "Duration", "Views", "Likes", "Number of Comments", "Channel Name", "Channel ID"]
-    df = pd.DataFrame(data=body, columns=headers)
+    df = pd.DataFrame(data=vid_data, columns=headers)
     df["Comments"] = comments_data
     df["Transcript"] = transcript_data
 
     # Extract channel data into a separate dataframe and join with main dataframe by channel ID (this is so each of multiple videos from the same channel have subscriber count in the output file)
-    body = list(map(extract_channel_data, channel_data))
     headers = ["Channel ID", "Subscriber Count"]
-    channel_df = pd.DataFrame(data=body, columns=headers)
+    channel_df = pd.DataFrame(data=channel_data, columns=headers)
     channel_df.set_index("Channel ID", inplace=True)
 
     df = df.join(channel_df, on="Channel ID")
 
-    return df.set_index(index, inplace=True)
+    return df.set_index(index)
 
 
