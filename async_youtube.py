@@ -2,7 +2,7 @@ import asyncio
 import aiohttp
 from keys import API_KEY
 from exceptions import QuotaExceededError, APIError, CommentsDisabledError, check_keyerror_cause
-from functions import extract_channel_data
+from functions import extract_channel_data, extract_vid_data
 
 class AsyncYoutube:
     
@@ -110,11 +110,40 @@ class AsyncYoutube:
         return list(map(lambda x: list(x), uniques))
 
 
-async def main():
-    async with aiohttp.ClientSession() as session:
-        api = AsyncYoutube(session, API_KEY)
-        tickers = ["GOOGL"]
-        queries = [ticker+" stock" for ticker in tickers]
-        vid_ids, channel_ids, tickers = await api.get_ids(queries, video_duration=["short", "medium", "long"])
-        subs = await api.get_subscribers(channel_ids)
-        print(subs)
+    async def get_video_data(self, vid_ids):
+        # One API call can only process 50 video IDs at a time, split the list of video IDs into a list of lists w/ max length = 50 
+        packets = [vid_ids[i:i+50] for i in range(0, len(vid_ids), 50)]
+
+        # For each list of lists of video ids, stitch the 50 video ids together into one string with "&id=" between them. This string can be put into the request URL
+        stitch = lambda x: "&id=".join(x)
+        req_strings = list(map(stitch, packets))
+
+        tasks = [self.session.get(f"{self.base_url}/videos?part=id&part=statistics&part=snippet&part=contentDetails&maxResults=50&id={ids}&key={self.api_key}") for ids in req_strings]
+
+        try:
+            responses = await asyncio.gather(*tasks)
+        except Exception as e:
+            return e
+
+        results = [await response.json() for response in responses]
+
+        # Get rid of useless metadata about the API calls and add individual video information to a list "items"
+        items = []
+        for result in results:
+            items.extend(result["items"])
+
+        # Extract the data that we want from the set of all video data for each video and return as a list of lists of single video data
+        return list(map(extract_vid_data, items))
+
+
+
+# async def main():
+#     async with aiohttp.ClientSession() as session:
+#         api = AsyncYoutube(session, API_KEY)
+#         tickers = ["GOOGL"]
+#         queries = [ticker+" stock" for ticker in tickers]
+#         vid_ids, channel_ids, tickers = await api.get_ids(queries, video_duration=["short", "medium", "long"])
+#         subs = await api.get_subscribers(channel_ids)
+#         vids = await api.get_video_data(vid_ids)
+#         print(subs)
+#         print(vids)
