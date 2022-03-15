@@ -1,7 +1,5 @@
 from keys import *
 from functions import *
-from googleapiclient.discovery import build
-import pandas as pd
 from async_youtube import AsyncYoutube
 import asyncio
 import aiohttp
@@ -16,26 +14,17 @@ async def main():
         api = AsyncYoutube(session, API_KEY)
         vid_ids, channel_ids, tickers = await api.get_ids(queries, video_duration=["short", "medium", "long"])
         comments = await api.get_comments_multi_videos(vid_ids)
+        vid_data = await api.get_video_data(vid_ids)
+        channel_data = await api.get_subscribers(channel_ids)
 
-    with build("youtube", "v3", developerKey=API_KEY) as service:
-        # Create objects for search query and video query
-        videos = service.videos()
-        channels = service.channels()
+    print("Fetching transcripts...")
+    transcript_data = list(map(get_transcript, vid_ids))
 
-        # Generate video and channel request objects
-        vid_request = videos.list(part=["id","snippet", "statistics", "contentDetails"], id=vid_ids)
+    # Extract data, collect into a dataframe, and save to csv file
+    df = generate_dataframe(vid_data, comments, transcript_data, channel_data)
 
-        # print("Fetching video metadata...")
-        # vid_data = get_data(vid_request)
-
-        # print("Fetching transcripts...")
-        # transcript_data = list(map(get_transcript, vid_ids))
-
-        # # Extract data, collect into a dataframe, and save to csv file
-        # df = generate_dataframe(vid_data, comments, transcript_data, channel_data)
-
-        # # Output to Excel
-        # df.to_excel("output.xlsx", engine="xlsxwriter")
+    # Output to Excel
+    df.to_excel("output.xlsx", engine="xlsxwriter")
 
 if __name__ == '__main__':
     if platform == "win32":
