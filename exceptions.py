@@ -15,7 +15,7 @@ class CommentsDisabledError(APIError):
 # This function can be run whenever there is a KeyError to diagnose the problem and raise the correct error.
 def check_keyerror_cause(response):
     if type(response) == list:
-        response = response[0]
+        response = response[-1]
     if "error" in response.keys():
         reason = response["error"]["errors"][0]["reason"]
         if reason == "quotaExceeded":
