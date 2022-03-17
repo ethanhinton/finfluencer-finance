@@ -2,6 +2,8 @@ from youtube_transcript_api import YouTubeTranscriptApi as trans
 from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
 from googleapiclient.errors import HttpError
 import pandas as pd
+import bs4 as bs
+import requests
 
 # Changes video duration from PTxMxS to MM:SS       
 def format_duration(duration):
@@ -78,12 +80,15 @@ def get_comments(video_id, service):
         print(f"Error status code : {e.status_code}, reason : {e.reason}")
         return [f"Error when retrieving comments : {e.reason}"]
     
-def generate_dataframe(vid_data, comments_data, transcript_data, channel_data, index="VideoID"):
+def generate_dataframe(vid_data, comments_data, channel_data, tickers, transcript_data=None, index="VideoID"):
     # Extract data, collect into a dataframe, and save to csv file
     headers = ["VideoID", "Title", "Description", "Tags", "Publish Date", "Thumbnail", "Duration", "Views", "Likes", "Number of Comments", "Channel Name", "Channel ID"]
     df = pd.DataFrame(data=vid_data, columns=headers)
     df["Comments"] = comments_data
-    df["Transcript"] = transcript_data
+    df["Stock"] = tickers
+
+    if transcript_data != False:
+        df["Transcript"] = transcript_data
 
     # Extract channel data into a separate dataframe and join with main dataframe by channel ID (this is so each of multiple videos from the same channel have subscriber count in the output file)
     headers = ["Channel ID", "Subscriber Count"]
@@ -94,4 +99,17 @@ def generate_dataframe(vid_data, comments_data, transcript_data, channel_data, i
 
     return df.set_index(index)
 
+
+def sp500_tickers():
+    resp = requests.get('http://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
+    soup = bs.BeautifulSoup(resp.text, 'lxml')
+    table = soup.find('table', {'class': 'wikitable sortable'})
+    tickers = []
+    for row in table.findAll('tr')[1:]:
+        ticker = row.findAll('td')[0].text
+        tickers.append(ticker)
+    
+    tickers = list(map(lambda x: x[:-1], tickers))
+    
+    return tickers
 
