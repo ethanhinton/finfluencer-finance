@@ -4,6 +4,7 @@ from googleapiclient.errors import HttpError
 import pandas as pd
 import bs4 as bs
 import requests
+import os
 
 # Changes video duration from PTxMxS to MM:SS       
 def format_duration(duration):
@@ -80,7 +81,7 @@ def get_comments(video_id, service):
         print(f"Error status code : {e.status_code}, reason : {e.reason}")
         return [f"Error when retrieving comments : {e.reason}"]
     
-def generate_dataframe(vid_data, comments_data, channel_data, tickers, transcript_data=None, index="VideoID"):
+def generate_dataframe(vid_data, comments_data, channel_data, tickers, transcript_data=None, index="VideoID", existing_data=False):
     # Extract data, collect into a dataframe, and save to csv file
     headers = ["VideoID", "Title", "Description", "Tags", "Publish Date", "Thumbnail", "Duration", "Views", "Likes", "Number of Comments", "Channel Name", "Channel ID"]
     df = pd.DataFrame(data=vid_data, columns=headers)
@@ -97,6 +98,9 @@ def generate_dataframe(vid_data, comments_data, channel_data, tickers, transcrip
 
     df = df.join(channel_df, on="Channel ID").drop_duplicates(subset=[index])
 
+    if type(existing_data) != bool:
+        df = pd.concat([df, existing_data]).drop_duplicates(subset=[index])
+
     return df.set_index(index)
 
 
@@ -112,4 +116,9 @@ def sp500_tickers():
     tickers = list(map(lambda x: x[:-1], tickers))
     
     return tickers
+
+def check_for_data(filename):
+    if os.path.exists(filename):
+        return True
+    return False
 
