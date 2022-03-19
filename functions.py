@@ -95,7 +95,7 @@ def generate_dataframe(vid_data, comments_data, channel_data, tickers, transcrip
     channel_df = pd.DataFrame(data=channel_data, columns=headers)
     channel_df.set_index("Channel ID", inplace=True)
 
-    df = df.join(channel_df, on="Channel ID")
+    df = df.join(channel_df, on="Channel ID").drop_duplicates(subset=[index])
 
     return df.set_index(index)
 
