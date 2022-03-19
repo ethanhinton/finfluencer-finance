@@ -28,7 +28,19 @@ from sys import platform
 
 
 async def main():
-    TICKERS = ["AMZN", "GOOGL"]
+    # Grabs list of S&P500 tickers from wikipedia
+    # TICKERS = sp500_tickers()[:2]
+    TICKERS = ["AMZN", "GOOGL", "AAPL"]
+
+    # Checks if an excel file already exists, if so, check which stocks have already been done, and remove these from the ticker list
+    if check_for_data("output.xlsx"):
+        existing_data = pd.read_excel("output.xlsx")
+        known_tickers = existing_data["Stock"].unique()
+        TICKERS = list(set(TICKERS) - set(known_tickers))
+    else:
+        existing_data = False
+
+    # Create the queries
     queries = [ticker+" stock" for ticker in TICKERS]
 
     # Retrieve video and channel IDs asynchronously for all tickers using 
@@ -43,7 +55,7 @@ async def main():
 
     print("Generating Spreadsheet...")
     # Extract data, collect into a dataframe, and save to csv file
-    df = generate_dataframe(vid_data, comments, channel_data, tickers, transcript_data=False)
+    df = generate_dataframe(vid_data, comments, channel_data, tickers, transcript_data=False, existing_data=existing_data)
 
     # Output to Excel
     df.to_excel("output.xlsx", engine="xlsxwriter")
