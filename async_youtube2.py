@@ -129,7 +129,6 @@ class AsyncYoutube:
 
     async def get_info_for_query(self, query):
         vid_ids, channel_ids, tickers = await self.get_ids(query, video_duration=["short", "medium", "long"])
-        print(len(vid_ids))
         subs = await self.get_subscribers(channel_ids)
         vids = await self.get_video_data(vid_ids)
         comments = await self.get_comments_multi_videos(vid_ids)
