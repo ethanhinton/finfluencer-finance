@@ -1,7 +1,6 @@
 import asyncio
-import aiohttp
 from keys import API_KEY
-from exceptions import QuotaExceededError, APIError, CommentsDisabledError, check_keyerror_cause
+from exceptions import CommentsDisabledError, check_keyerror_cause
 from functions import extract_channel_data, extract_vid_data
 
 class AsyncYoutube:
@@ -11,22 +10,20 @@ class AsyncYoutube:
         self.api_key = api_key
         self.base_url = "https://www.googleapis.com/youtube/v3"
 
-    # Gets video and channel ids for a list of queries and video duration filters
-    async def get_ids(self, queries, max_results=50, order="date", video_duration=["any"]):
-        # Call API for multiple duration filters for each query in the query input list (returns a list of lists of video ids)
-        tasks = [self.ids_multi_duration(query, max_results=max_results, order=order, durations=video_duration) for query in queries]
-        responses = await asyncio.gather(*tasks)
+    # Gets video and channel ids for a single query and video duration filters
+    async def get_ids(self, query, max_results=50, order="date", video_duration=["any"]):
+        # Call API for multiple duration filters for the query
+        response = await self.ids_multi_duration(query, max_results=max_results, order=order, durations=video_duration)
 
         # Unpack lists and output two lists of video and channel ids for all videos in all queries 
         vid_ids = []
         channel_ids = []
         tickers = []
 
-        for i, response in enumerate(responses):
-            ticker = queries[i].split(" ")[0]
-            tickers.extend([ticker]*len(response[0]))
-            vid_ids.extend(response[0])
-            channel_ids.extend(response[1])
+        ticker = query.split(" ")[0]
+        tickers.extend([ticker]*len(response[0]))
+        vid_ids.extend(response[0])
+        channel_ids.extend(response[1])
         return vid_ids, channel_ids, tickers
 
     # Gets video and channel ids for a list of duration filters
@@ -72,6 +69,7 @@ class AsyncYoutube:
 
         return list(map(lambda x: x['snippet']['topLevelComment']['snippet']['textOriginal'], items))
     
+    # Runs get_comments for a list of video ids
     async def get_comments_multi_videos(self, vid_ids):
         tasks = [self.get_comments(vid_id) for vid_id in vid_ids]
 
@@ -90,10 +88,7 @@ class AsyncYoutube:
 
         tasks = [self.session.get(f"{self.base_url}/channels?part=id&part=statistics&maxResults=50&id={ids}&key={self.api_key}") for ids in req_strings]
 
-        try:
-            responses = await asyncio.gather(*tasks)
-        except Exception as e:
-            return e
+        responses = await asyncio.gather(*tasks)
 
         results = [await response.json() for response in responses]
 
@@ -120,10 +115,8 @@ class AsyncYoutube:
 
         tasks = [self.session.get(f"{self.base_url}/videos?part=id&part=statistics&part=snippet&part=contentDetails&maxResults=50&id={ids}&key={self.api_key}") for ids in req_strings]
 
-        try:
-            responses = await asyncio.gather(*tasks)
-        except Exception as e:
-            return e
+
+        responses = await asyncio.gather(*tasks)
 
         results = [await response.json() for response in responses]
 
@@ -135,15 +128,12 @@ class AsyncYoutube:
         # Extract the data that we want from the set of all video data for each video and return as a list of lists of single video data
         return list(map(extract_vid_data, items))
 
+    # Calls all relevant async functions to get all info for one video
+    async def get_info_for_query(self, query):
+        vid_ids, channel_ids, tickers = await self.get_ids(query, video_duration=["short", "medium", "long"])
+        subs = await self.get_subscribers(channel_ids)
+        vids = await self.get_video_data(vid_ids)
+        comments = await self.get_comments_multi_videos(vid_ids)
 
+        return vid_ids, channel_ids, tickers, vids, subs, comments
 
-# async def main():
-#     async with aiohttp.ClientSession() as session:
-#         api = AsyncYoutube(session, API_KEY)
-#         tickers = ["GOOGL"]
-#         queries = [ticker+" stock" for ticker in tickers]
-#         vid_ids, channel_ids, tickers = await api.get_ids(queries, video_duration=["short", "medium", "long"])
-#         subs = await api.get_subscribers(channel_ids)
-#         vids = await api.get_video_data(vid_ids)
-#         print(subs)
-#         print(vids)
