@@ -1,22 +1,18 @@
+from selectors import EpollSelector
 from keys import *
 from functions import *
-from async_youtube import AsyncYoutube
+# from async_youtube import AsyncYoutube
+from async_youtube2 import AsyncYoutube
 import asyncio
 import aiohttp
 from sys import platform
+from datetime import datetime, timedelta
+import os
 
 
 async def main():
     # Grabs list of S&P500 tickers from wikipedia
-    # TICKERS = sp500_tickers()[:2]
-    TICKERS = ["AMZN", "GOOGL", "AAPL"]
-
-    while True:
-        transcripts = input("Fetch transcripts for all compatible videos? (NOTE: This will increase computation time significantly) (y/n) : ").lower()
-        if transcripts in ["y", "n"]:
-            break
-        else:
-            print("INVALID INPUT : Enter 'y' for yes or 'n' for no\n")
+    TICKERS = sp500_tickers()
 
     # Checks if an excel file already exists, if so, check which stocks have already been done, and remove these from the ticker list
     if check_for_data("output.xlsx"):
@@ -25,17 +21,54 @@ async def main():
         TICKERS = list(set(TICKERS) - set(known_tickers))
     else:
         existing_data = False
-    
+        try:
+            os.remove("settings.txt")
+        except Exception as e:
+            print(e)
 
+    # Grab settings that determine how many videos are collected per stock (and whether or not comments are fetched), also grabs the API quota and date and time of program run.
+    reduce_quota_option, run_time, api_quota = get_settings(TICKERS)
+
+    # Write the settings to settings file
+    with open("settings.txt", "w") as f:
+        f.write(str(reduce_quota_option))
+        f.write("\n")
+        f.write(run_time)
+        f.write("\n")
+        f.write(str(api_quota))
+
+    # Ask user if they would like transcripts to be collected for videos or not
+    while True:
+        transcripts = input("Fetch transcripts for all compatible videos? (NOTE: This will increase computation time significantly) (y/n) : ").lower()
+        if transcripts in ["y", "n"]:
+            break
+        else:
+            print("INVALID INPUT : Enter 'y' for yes or 'n' for no\n")
+    
     # Create the queries
     queries = [ticker+" stock" for ticker in TICKERS]
 
-    # Retrieve video and channel IDs asynchronously for all tickers using 
+    # Set up async session object
     async with aiohttp.ClientSession() as session:
         api = AsyncYoutube(session, API_KEY)
 
+        if reduce_quota_option in [1, 3]:
+            include_comments = True
+        else:
+            include_comments = False
+        
+        if reduce_quota_option in [1, 2]:
+            video_duration = ["short", "medium", "long"]
+        else:
+            video_duration = ["any"]
+
         print(f"Fetching video data for {len(TICKERS)} companies...")
-        vid_ids, channel_ids, vid_data, channel_data, comments, tickers = await get_output_all_queries(api, queries)
+        # vid_ids, channel_ids, vid_data, channel_data, comments, tickers = await api.get_output_all_queries(queries, include_comments=include_comments, video_duration=video_duration)
+        vid_ids, channel_ids, tickers = api.get_ids(queries, video_duration=video_duration)
+        vid_data = api.get_video_data(vid_ids)
+        channel_data = api.get_subscribers(channel_ids)
+        if include_comments:
+            comments = api.get_comments_multi_videos(vid_ids)
 
     if transcripts == "y":
         print("Fetching transcripts...")
@@ -52,37 +85,6 @@ async def main():
     # Output to Excel
     df.to_excel("output.xlsx", engine="xlsxwriter")
 
-async def get_output_all_queries(api, queries):
-    tasks = [asyncio.create_task(api.get_info_for_query(query)) for query in queries]
-
-    done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
-    
-    if pending:
-        print(f"Number of queries retrieved : {len(done) - 1}")
-
-    for p in pending:
-        p.cancel()
-
-    v_ids = []
-    c_ids = []
-    vid_data = []
-    channel_data = []
-    comment_data = []
-    tickers = []
-
-    for d in done:
-        try:
-            vid_ids, channel_ids, ticker, vids, subs, comments = d.result()
-            v_ids.extend(vid_ids)
-            c_ids.extend(channel_ids) 
-            vid_data.extend(vids)
-            channel_data.extend(subs)
-            comment_data.extend(comments)
-            tickers.extend(ticker)
-        except Exception as e:
-            print(f"Error retrieving data for query {e}")
-
-    return v_ids, c_ids, vid_data, channel_data, comment_data, tickers
 
 if __name__ == '__main__':
     if platform == "win32":
