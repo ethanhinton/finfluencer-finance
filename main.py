@@ -1,6 +1,6 @@
 from keys import *
 from functions import *
-from async_youtube2 import AsyncYoutube
+from async_youtube import AsyncYoutube
 import asyncio
 import aiohttp
 from sys import platform
