@@ -37,6 +37,11 @@ async def main():
         f.write("\n")
         f.write(str(api_quota))
 
+    # Based on the api quota and the settings the user has chosen, calculate the number of stocks that can be retrieved in one run of the program
+    # Shorten the ticker list to contain only that number of stocks
+    number_stocks = calculate_number_stocks(reduce_quota_option, api_quota)
+    TICKERS = TICKERS[:number_stocks]
+
     # Ask user if they would like transcripts to be collected for videos or not
     while True:
         transcripts = input("Fetch transcripts for all compatible videos? (NOTE: This will increase computation time significantly) (y/n) : ").lower()

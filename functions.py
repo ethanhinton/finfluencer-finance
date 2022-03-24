@@ -176,3 +176,7 @@ def get_settings(TICKERS):
     
     return reduce_quota_option, run_time, api_quota
 
+def calculate_number_stocks(reduce_quota_option, api_quota):
+    costs_per_stock = {1:456, 2:306, 3:152, 4:102}
+
+    return int(api_quota // costs_per_stock[reduce_quota_option])
