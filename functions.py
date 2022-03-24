@@ -52,12 +52,12 @@ def extract_channel_data(channel):
     )
     return out    
 
-def get_transcript(video_id):
+def get_transcript(video_id, index, number_of_videos):
     try:
+        print(f"Fetching transcript for video : {index}/{number_of_videos}")
         transcript = trans.list_transcripts(video_id).find_transcript(language_codes=["en"]).fetch()
         transcript_text = " ".join(list(map(lambda x: x["text"], transcript)))
     except (NoTranscriptFound, TranscriptsDisabled):
-        print("No English transcript available")
         return "No transcript"
     return transcript_text
 
