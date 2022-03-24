@@ -27,7 +27,7 @@ class AsyncYoutube:
         return vid_ids, channel_ids, tickers
 
     # Gets video and channel ids for a list of duration filters
-    async def ids_multi_duration(self, query, max_results=50, order="date", durations=["short", "medium", "long"]):
+    async def ids_multi_duration(self, query, max_results=50, order="date", durations=["any"]):
         # Call API to search for query with each duration filter
         tasks = [self.session.get(f"{self.base_url}/search?part=snippet&maxResults={max_results}&q={query.replace(' ', '%20')}&type=video&order={order}&videoDuration={duration}&key={self.api_key}") for duration in durations]
     
@@ -129,11 +129,49 @@ class AsyncYoutube:
         return list(map(extract_vid_data, items))
 
     # Calls all relevant async functions to get all info for one video
-    async def get_info_for_query(self, query):
-        vid_ids, channel_ids, tickers = await self.get_ids(query, video_duration=["short", "medium", "long"])
+    async def get_info_for_query(self, query, include_comments=True, video_duration=["any"]):
+        vid_ids, channel_ids, tickers = await self.get_ids(query, video_duration=video_duration)
         subs = await self.get_subscribers(channel_ids)
         vids = await self.get_video_data(vid_ids)
-        comments = await self.get_comments_multi_videos(vid_ids)
+
+        if include_comments:
+            comments = await self.get_comments_multi_videos(vid_ids)
+        else:
+            comments = False
 
         return vid_ids, channel_ids, tickers, vids, subs, comments
+    
+    # Calls get_info_for_query asynchronously for all queries retrieving all information 
+    async def get_output_all_queries(self, queries, include_comments=True, video_duration=["any"]):
+        tasks = [asyncio.create_task(self.get_info_for_query(query, include_comments=include_comments, video_duration=video_duration)) for query in queries]
+
+        done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
+        
+        if pending:
+            print(f"Number of queries retrieved : {len(done) - 1}")
+
+        for p in pending:
+            p.cancel()
+
+        v_ids = []
+        c_ids = []
+        vid_data = []
+        channel_data = []
+        comment_data = []
+        tickers = []
+
+        for d in done:
+            try:
+                vid_ids, channel_ids, ticker, vids, subs, comments = d.result()
+                v_ids.extend(vid_ids)
+                c_ids.extend(channel_ids) 
+                vid_data.extend(vids)
+                channel_data.extend(subs)
+                if include_comments:
+                    comment_data.extend(comments)
+                tickers.extend(ticker)
+            except Exception as e:
+                print(f"Error retrieving data for query {e}")
+
+        return v_ids, c_ids, vid_data, channel_data, comment_data, tickers
 
