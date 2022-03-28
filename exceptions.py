@@ -1,6 +1,3 @@
-from msilib.schema import AppId
-
-
 class APIError(Exception):
     pass
 

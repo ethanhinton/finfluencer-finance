@@ -1,4 +1,3 @@
-from selectors import EpollSelector
 from keys import *
 from functions import *
 # from async_youtube import AsyncYoutube
