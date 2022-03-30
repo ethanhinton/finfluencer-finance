@@ -67,12 +67,13 @@ async def main():
             video_duration = ["any"]
 
         print(f"Fetching video data for {len(TICKERS)} companies...")
-        # vid_ids, channel_ids, vid_data, channel_data, comments, tickers = await api.get_output_all_queries(queries, include_comments=include_comments, video_duration=video_duration)
-        vid_ids, channel_ids, tickers = api.get_ids(queries, video_duration=video_duration)
-        vid_data = api.get_video_data(vid_ids)
-        channel_data = api.get_subscribers(channel_ids)
+        vid_ids, channel_ids, tickers = await api.get_ids(queries, video_duration=video_duration)
+        vid_data = await api.get_video_data(vid_ids)
+        channel_data = await api.get_subscribers(channel_ids)
+
+        comments = False
         if include_comments:
-            comments = api.get_comments_multi_videos(vid_ids)
+            comments = await api.get_comments_multi_videos(vid_ids)
 
     if transcripts == "y":
         print("Fetching transcripts...")
