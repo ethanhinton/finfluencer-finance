@@ -10,8 +10,9 @@ import os
 
 
 async def main():
-    # Grabs list of S&P500 tickers from wikipedia
-    TICKERS = sp500_tickers()
+    # Grabs list of S&P500 tickers from .txt file
+    with open("tickers.txt", "r") as f:
+        tickers = f.readline().split(",")
 
     # Checks if an excel file already exists, if so, check which stocks have already been done, and remove these from the ticker list
     if check_for_data("output.xlsx"):
