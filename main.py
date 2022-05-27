@@ -1,7 +1,6 @@
 from keys import *
 from functions import *
-# from async_youtube import AsyncYoutube
-from async_youtube2 import AsyncYoutube
+from async_youtube import AsyncYoutube
 import asyncio
 import aiohttp
 from sys import platform
@@ -18,13 +17,14 @@ async def main():
     if check_for_data("output.xlsx"):
         existing_data = pd.read_excel("output.xlsx")
         known_tickers = existing_data["Stock"].unique()
-        TICKERS = list(set(TICKERS) - set(known_tickers))
+        TICKERS = list(set(tickers) - set(known_tickers))
     else:
         existing_data = False
         try:
             os.remove("settings.txt")
         except Exception as e:
             print(e)
+        TICKERS = tickers
 
     # Grab settings that determine how many videos are collected per stock (and whether or not comments are fetched), also grabs the API quota and date and time of program run.
     reduce_quota_option, run_time, api_quota = get_settings(TICKERS)
