@@ -1,3 +1,4 @@
+from msilib.schema import InstallUISequence
 from keys import *
 from functions import *
 from async_youtube import AsyncYoutube
@@ -6,25 +7,25 @@ import aiohttp
 from sys import platform
 from datetime import datetime, timedelta
 import os
-
+import pandas as pd
 
 async def main():
-    # Grabs list of S&P500 tickers from .txt file
-    with open("tickers.txt", "r") as f:
-        tickers = f.readline().split(",")
+    # Open Excel file with instructions for searches
+    instructions = pd.read_excel("stocks_and_dates.xlsx", index_col="Stock")
+    instructions = instructions[instructions["Done?"] != "Yes"]
+    TICKERS = list(instructions.index)
+    dates = list(zip(list(instructions["Start Date"]), list(instructions["End Date"])))
 
-    # Checks if an excel file already exists, if so, check which stocks have already been done, and remove these from the ticker list
+    # Checks if an output excel file already exists, if not, remove the settings.txt file as settings need to be re entered
     if check_for_data("output.xlsx"):
+        print("Existing Data Found")
         existing_data = pd.read_excel("output.xlsx")
-        known_tickers = existing_data["Stock"].unique()
-        TICKERS = list(set(tickers) - set(known_tickers))
     else:
         existing_data = False
         try:
             os.remove("settings.txt")
         except Exception as e:
             print(e)
-        TICKERS = tickers
 
     # Grab settings that determine how many videos are collected per stock (and whether or not comments are fetched), also grabs the API quota and date and time of program run.
     reduce_quota_option, run_time, api_quota = get_settings(TICKERS)
@@ -52,6 +53,7 @@ async def main():
     
     # Create the queries
     queries = [ticker+" stock" for ticker in TICKERS]
+    print(queries)
 
     # Set up async session object
     async with aiohttp.ClientSession() as session:
