@@ -5,6 +5,7 @@ import bs4 as bs
 import requests
 import os
 from datetime import datetime, timedelta
+import re
 
 # Changes video duration from PTxMxS to MM:SS       
 def format_duration(duration):
@@ -61,7 +62,29 @@ def get_transcript(video_id, index, number_of_videos):
         return "No transcript"
     return transcript_text
 
-    
+def check_multi_tickers(df, filename="all_tickers.csv"):
+    tickers = pd.read_csv(filename)
+    tickers = list(tickers.iloc[:,0])
+    print(tickers)
+
+    titles = list(df.Title)
+
+    number_stocks = []
+    stocks_in_title = []
+
+    for title in titles:
+        n = 0
+        s = []
+        words = re.split(r",|!|\$| |\||\.|\?|\:|\(|\)|/", title)
+        for word in words:
+            if word.upper() in tickers:
+                n += 1
+                s.append(word.upper())
+        number_stocks.append(n)
+        stocks_in_title.append(s)
+
+    return number_stocks, stocks_in_title
+
 def generate_dataframe(vid_data, comments_data, channel_data, tickers, transcript_data=None, index="VideoID", existing_data=False):
     # Extract data, collect into a dataframe, and save to csv file
     headers = ["VideoID", "Title", "Description", "Tags", "Publish Date", "Thumbnail", "Duration", "Views", "Likes", "Number of Comments", "Channel Name", "Channel ID"]
@@ -82,11 +105,14 @@ def generate_dataframe(vid_data, comments_data, channel_data, tickers, transcrip
 
     df = df.join(channel_df, on="Channel ID").drop_duplicates(subset=[index])
 
+    number_stocks, stocks_in_title = check_multi_tickers(df)
+    df["Number of Stocks in Title"] = number_stocks
+    df["Stocks in Title"] = stocks_in_title
+
     if type(existing_data) != bool:
         df = pd.concat([df, existing_data]).drop_duplicates(subset=[index])
 
     return df.set_index(index)
-
 
 def sp500_tickers():
     resp = requests.get('http://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
