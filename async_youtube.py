@@ -1,5 +1,4 @@
 import asyncio
-import aiohttp
 from keys import API_KEY
 from exceptions import QuotaExceededError, APIError, CommentsDisabledError, check_keyerror_cause
 from functions import extract_channel_data, extract_vid_data
