@@ -8,13 +8,21 @@ from sys import platform
 from datetime import datetime, timedelta
 import os
 import pandas as pd
+from googleapiclient.discovery import build
 
 async def main():
+
+    api_quota = 10000
+    include_comments = False
+    transcripts = False
+
     # Open Excel file with instructions for searches
-    instructions = pd.read_excel("stocks_and_dates.xlsx", index_col="Stock")
+    instructions = pd.read_excel("stocks_and_dates.xlsx", index_col="ID")
     instructions = instructions[instructions["Done?"] != "Yes"]
-    TICKERS = list(instructions.index)
-    dates = list(zip(list(instructions["Start Date"]), list(instructions["End Date"])))
+    TICKERS = list(map(lambda x: x.upper(), instructions.Stock))
+    dates = [earnings_announcement_period(x) for x in instructions["EA Date"]]
+    print(dates)
+    ids = list(instructions.index)
 
     # Checks if an output excel file already exists, if not, remove the settings.txt file as settings need to be re entered
     if check_for_data("output.xlsx"):
@@ -27,50 +35,48 @@ async def main():
         except Exception as e:
             print(e)
 
-    # Grab settings that determine how many videos are collected per stock (and whether or not comments are fetched), also grabs the API quota and date and time of program run.
-    reduce_quota_option, run_time, api_quota = get_settings(TICKERS)
+    # Fetch the date + time of last run of the program (if program run in last 24 hours, there could be errors due to API quota breaches)
+    run_time = get_run_time()
 
     # Write the settings to settings file
     with open("settings.txt", "w") as f:
-        f.write(str(reduce_quota_option))
-        f.write("\n")
         f.write(run_time)
-        f.write("\n")
-        f.write(str(api_quota))
-
+    
     # Based on the api quota and the settings the user has chosen, calculate the number of stocks that can be retrieved in one run of the program
     # Shorten the ticker list to contain only that number of stocks
-    number_stocks = calculate_number_stocks(reduce_quota_option, api_quota)
+    number_stocks = calculate_number_stocks(api_quota)
     TICKERS = TICKERS[:number_stocks]
+    ids = ids[:number_stocks]
 
-    # Ask user if they would like transcripts to be collected for videos or not
-    while True:
-        transcripts = input("Fetch transcripts for all compatible videos? (NOTE: This will increase computation time significantly) (y/n) : ").lower()
-        if transcripts in ["y", "n"]:
-            break
-        else:
-            print("INVALID INPUT : Enter 'y' for yes or 'n' for no\n")
-    
     # Create the queries
     queries = [ticker+" stock" for ticker in TICKERS]
-    print(queries)
+    print(TICKERS)
+
+    # Get video, channel ids from search queries
+    # Each query retrieves a specified number of pages of search results (each page is 50 videos)
+    # IDEA: You know when to be careful with searches when you get to the last API key.
+    # Count the number of searches done (perhaps using 2 lists with pop()?) and when on last API key, use only for video and channel queries as these are guaranteed to be below quota
+    with build("youtube", "v3", developerKey=API_KEY) as service:
+        print("Fetching Search Results...")
+        vid_ids = []
+        channel_ids = []
+        tickers = []
+        ids_counter = 0
+        for i, query in enumerate(queries):
+            print(query)
+            print(type(dates[i][0]))
+            v, c, t = search_videos(service, query, date_to_RFC(dates[i][0]), date_to_RFC(dates[i][1]), order="date", pages=4)
+            vid_ids.extend(v)
+            channel_ids.extend(c)
+            tickers.extend(t)
+            # Add 1 to ids counter to determine how many queries have been completed
+            ids_counter += 1
 
     # Set up async session object
     async with aiohttp.ClientSession() as session:
         api = AsyncYoutube(session, API_KEY)
 
-        if reduce_quota_option in [1, 3]:
-            include_comments = True
-        else:
-            include_comments = False
-        
-        if reduce_quota_option in [1, 2]:
-            video_duration = ["short", "medium", "long"]
-        else:
-            video_duration = ["any"]
-
-        print(f"Fetching video data for {len(TICKERS)} companies...")
-        vid_ids, channel_ids, tickers = await api.get_ids(queries, video_duration=video_duration)
+        print(f"Fetching video data for {len(vid_ids)} videos...")
         vid_data = await api.get_video_data(vid_ids)
         channel_data = await api.get_subscribers(channel_ids)
 
@@ -78,7 +84,7 @@ async def main():
         if include_comments:
             comments = await api.get_comments_multi_videos(vid_ids)
 
-    if transcripts == "y":
+    if transcripts:
         print("Fetching transcripts...")
         number = [x+1 for x in range(len(vid_ids))]
         number_vids = [len(number) for x in range(len(number))]
