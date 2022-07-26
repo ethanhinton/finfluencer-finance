@@ -6,6 +6,7 @@ import requests
 import os
 from datetime import datetime, timedelta
 import re
+from exceptions import check_keyerror_cause
 
 # Changes video duration from PTxMxS to MM:SS       
 def format_duration(duration):
@@ -65,7 +66,6 @@ def get_transcript(video_id, index, number_of_videos):
 def check_multi_tickers(df, filename="all_tickers.csv"):
     tickers = pd.read_csv(filename)
     tickers = list(tickers.iloc[:,0])
-    print(tickers)
 
     titles = list(df.Title)
 
@@ -75,7 +75,7 @@ def check_multi_tickers(df, filename="all_tickers.csv"):
     for title in titles:
         n = 0
         s = []
-        words = re.split(r",|!|\$| |\||\.|\?|\:|\(|\)|/", title)
+        words = re.split(r",|!|\$| |\||\.|\?|\:|\(|\)|/|#", title)
         for word in words:
             if word.upper() in tickers:
                 n += 1
@@ -135,13 +135,11 @@ def check_for_data(filename):
 # If there is a settings file (containing information about how many videos to grab for each stock / whether to grab comments or not), open the file.
 # If it has not been > 1 day since the program was last run, display a warning as it is unlikely the API quota will not have refreshed.
 # If there is no settings file, the user must select how many videos to grab for each stock / whether to grab comments or not, based on how much quota they want to use.
-def get_settings(TICKERS):
+def get_run_time():
     try:
         with open("settings.txt", "r") as f:
             settings = f.readlines()
-            reduce_quota_option = int(settings[0])
-            last_run_time = datetime.strptime(settings[1], '%d/%m/%y %H:%M:%S')
-            api_quota = int(settings[2])
+            last_run_time = datetime.strptime(settings[0], '%d/%m/%y %H:%M:%S')
         
             if datetime.now() - timedelta(days=1) < last_run_time:
                 print(f"""
@@ -163,46 +161,57 @@ def get_settings(TICKERS):
                             break
                     else:
                         print("INVALID INPUT : Enter 'y' for yes or 'n' for no\n")
-    except Exception:
-        while True:
-            try:
-                api_quota = int(input("Enter the API quota allowance associated with the API key (default = 10,000) : "))
-                if api_quota < 10000:
-                    api_quota = 10000
-                break
-            except Exception:
-                print("INVALID INPUT : Enter a number between 1 and 4.\n")
-        
-        if api_quota < 230000:
-            print(f"""
-            If your YouTube Data API key has a quota limit < 230,000, this program will need to be run over multiple days (if not, press option 1).
+    except FileNotFoundError:
+        print("No previous run time available. Assuming full API quota.")
 
-            Assuming the default quota limit of 10,000, to run the full program (fetching 150 of the latest videos on each stock and fetching comments for all of the videos)
-            the program will need to be run each day for 23 days.
-
-            To reduce the quota cost of running the program, you can reduce the data that the program collects, 4 options are detailed below:
-            
-            1. The required quota to fetch 150 videos for each remaining stock (with comments) is {456 * len(TICKERS)} ({(456 * len(TICKERS) // 10000) + 1} days of daily program running, assuming default API quota).
-            2. The required quota to fetch 150 videos for each remaining stock (without comments) is {306 * len(TICKERS)} ({(306 * len(TICKERS) // 10000) + 1} days of daily program running, assuming default API quota).
-            3. The required quota to fetch 50 videos for each remaining stock (with comments) is {152 * len(TICKERS)} ({(152 * len(TICKERS) // 10000) + 1} days of daily program running, assuming default API quota).
-            4. The required quota to fetch 50 videos for each remaining stock (without comments) is {102 * len(TICKERS)} ({(102 * len(TICKERS) // 10000) + 1} days of daily program running, assuming default API quota).
-
-            """)
-            while True:
-                try:
-                    reduce_quota_option = int(input("Choose one of the options above (enter number between 1 and 4) : "))
-                    if reduce_quota_option in [1, 2, 3, 4]:
-                        break
-                except Exception:
-                    print("INVALID INPUT : Enter a number between 1 and 4.\n")
-        else:
-            reduce_quota_option = 1
-        
-        run_time = datetime.now().strftime('%d/%m/%y %H:%M:%S')
+    run_time = datetime.now().strftime('%d/%m/%y %H:%M:%S')
     
-    return reduce_quota_option, run_time, api_quota
+    return run_time
 
-def calculate_number_stocks(reduce_quota_option, api_quota):
-    costs_per_stock = {1:456, 2:306, 3:152, 4:102}
+def calculate_number_stocks(api_quota):
+    cost_per_stock = 102
+    return int(api_quota // cost_per_stock)
 
-    return int(api_quota // costs_per_stock[reduce_quota_option])
+def date_to_RFC(date):
+    return date.isoformat("T") + "Z"
+
+def paginated_results(search_obj, request, limit_requests=4):
+    remaining = -1 if limit_requests is None else limit_requests
+
+    while request and remaining != 0:
+        response = request.execute()
+        yield response
+        request = search_obj.list_next(request, response)
+        remaining -= 1
+
+
+def search_videos(service, query, start_date, end_date, order, pages, max_results=50):
+    print(start_date, end_date)
+    search = service.search()
+    search_request = search.list(
+        part="snippet",
+        q=query,
+        publishedAfter=start_date,
+        publishedBefore=end_date,
+        order=order,
+        maxResults=max_results
+    )
+
+    responses = paginated_results(search, search_request, limit_requests=pages)
+
+    videos = []
+    for response in responses:
+        videos.extend(response["items"])
+
+    vid_ids = list(map(lambda x : x["id"]["videoId"], videos))
+    channel_ids = list(map(lambda x : x["snippet"]["channelId"], videos))
+    tickers = [query.split(" ")[0]] * len(vid_ids)
+
+    return vid_ids, channel_ids, tickers
+
+# Returns a start date and end date a specified number of days around an earnings announcement date
+def earnings_announcement_period(ea_date, width=10):
+    end_date = ea_date + timedelta(days=width)
+    start_date = ea_date - timedelta(days=width)
+
+    return start_date, end_date
