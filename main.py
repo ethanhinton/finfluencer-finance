@@ -5,7 +5,6 @@ from async_youtube import AsyncYoutube
 import asyncio
 import aiohttp
 from sys import platform
-from datetime import datetime, timedelta
 import os
 import pandas as pd
 from googleapiclient.discovery import build
@@ -17,11 +16,10 @@ async def main():
     transcripts = False
 
     # Open Excel file with instructions for searches
-    instructions = pd.read_excel("stocks_and_dates.xlsx", index_col="ID")
-    instructions = instructions[instructions["Done?"] != "Yes"]
+    excel_sheet = pd.read_excel("stocks_and_dates.xlsx", index_col="ID")
+    instructions = excel_sheet[excel_sheet["Done?"] != "Yes"]
     TICKERS = list(map(lambda x: x.upper(), instructions.Stock))
     dates = [earnings_announcement_period(x) for x in instructions["EA Date"]]
-    print(dates)
     ids = list(instructions.index)
 
     # Checks if an output excel file already exists, if not, remove the settings.txt file as settings need to be re entered
@@ -46,7 +44,6 @@ async def main():
     # Shorten the ticker list to contain only that number of stocks
     number_stocks = calculate_number_stocks(api_quota)
     TICKERS = TICKERS[:number_stocks]
-    ids = ids[:number_stocks]
 
     # Create the queries
     queries = [ticker+" stock" for ticker in TICKERS]
@@ -61,7 +58,7 @@ async def main():
         vid_ids = []
         channel_ids = []
         tickers = []
-        ids_counter = 0
+        ids_done = []
         for i, query in enumerate(queries):
             print(query)
             print(type(dates[i][0]))
@@ -69,8 +66,8 @@ async def main():
             vid_ids.extend(v)
             channel_ids.extend(c)
             tickers.extend(t)
-            # Add 1 to ids counter to determine how many queries have been completed
-            ids_counter += 1
+            # Add id to ids_done list to determine which queries have been completed
+            ids_done.append(ids[i])
 
     # Set up async session object
     async with aiohttp.ClientSession() as session:
@@ -91,6 +88,10 @@ async def main():
         transcript_data = list(map(get_transcript, vid_ids, number, number_vids))
     else:
         transcript_data = False
+
+    # Change "Done?" column to "Yes" for queries that have been completed
+    excel_sheet.loc[ids_done, "Done?"] = "Yes"
+    excel_sheet.to_excel("stocks_and_dates.xlsx")
 
     print("Generating Spreadsheet...")
     # Extract data, collect into a dataframe, and save to csv file
