@@ -15,18 +15,20 @@ async def main():
     include_comments = True
     transcripts = False
     pages_per_query = 4
+    input_filename = "stocks_and_dates.xlsx"
+    output_filename = "output.xlsx"
 
     # Open Excel file with instructions for searches
-    excel_sheet = pd.read_excel("stocks_and_dates.xlsx", index_col="ID")
+    excel_sheet = pd.read_excel(input_filename, index_col="ID")
     instructions = excel_sheet[excel_sheet["Done?"] != "Yes"]
     TICKERS = list(map(lambda x: x.upper(), instructions.Stock))
     dates = [earnings_announcement_period(x) for x in instructions["EA Date"]]
     ids = list(instructions.index)
 
     # Checks if an output excel file already exists, if not, remove the settings.txt file as settings need to be re entered
-    if check_for_data("output.xlsx"):
+    if check_for_data(output_filename):
         print("Existing Data Found")
-        existing_data = pd.read_excel("output.xlsx")
+        existing_data = pd.read_excel(output_filename)
     else:
         existing_data = False
         try:
@@ -122,11 +124,11 @@ async def main():
     df = generate_dataframe(vid_data, comments, channel_data, tickers, transcript_data=transcript_data, existing_data=existing_data)
 
     # Output to Excel
-    df.to_excel("output.xlsx", engine="xlsxwriter")
+    df.to_excel(output_filename, engine="xlsxwriter")
 
     # Change "Done?" column to "Yes" for queries that have been completed
     excel_sheet.loc[ids_done, "Done?"] = "Yes"
-    excel_sheet.to_excel("stocks_and_dates.xlsx")
+    excel_sheet.to_excel(input_filename)
 
 
 if __name__ == '__main__':
