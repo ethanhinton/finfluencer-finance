@@ -6,7 +6,9 @@ import requests
 import os
 from datetime import datetime, timedelta
 import re
-from exceptions import check_keyerror_cause
+from exceptions import check_keyerror_cause, QuotaExceededError
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 # Changes video duration from PTxMxS to MM:SS       
 def format_duration(duration):
@@ -185,7 +187,7 @@ def paginated_results(search_obj, request, limit_requests=4):
         remaining -= 1
 
 
-def search_videos(service, query, start_date, end_date, order, pages, max_results=50):
+def search_request(service, query, start_date, end_date, order, pages, max_results=50):
     print(start_date, end_date)
     search = service.search()
     search_request = search.list(
@@ -215,3 +217,48 @@ def earnings_announcement_period(ea_date, width=10):
     start_date = ea_date - timedelta(days=width)
 
     return start_date, end_date
+
+def search_queries(API_KEYS, queries, dates, ids, pages_per_query):
+    # Set empty lists to be filled in following loop
+    vid_ids = []
+    channel_ids = []
+    tickers = []
+    ids_done = []
+
+    
+    # Loop through API keys allocated to search requests
+    for i, API_KEY in enumerate(API_KEYS):
+        print(f"API Key {i+1} of {len(API_KEYS)}")
+        try:
+            # Build the YouTube API search object (this must be done each time there is a new API key used)
+            with build("youtube", "v3", developerKey=API_KEY) as service:
+                print("Fetching Search Results...")
+                # Loop through queries
+                for i, query in enumerate(queries):
+                    print(query)
+                    print(ids[i])
+                    print(type(dates[i][0]))
+                    try:
+                        # Fetch video + channel IDs and the ticker of the stock in question
+                        v, c, t = search_request(service, query, date_to_RFC(dates[i][0]), date_to_RFC(dates[i][1]), order="date", pages=pages_per_query)
+                    # Catches instances where API quota has been exceeded, saves the index of the query currently being processed
+                    # Stores this so query can be processed using the next API key
+                    except HttpError as e:
+                        if repr(e)[-18:-5] == "quotaExceeded":
+                            print("API Quota Exceeded! Trying a different API Key...")
+                            query_index = i
+                            raise QuotaExceededError
+                    # If no error occurs, add video/channel ids and tickers to relevant lists
+                    else:
+                        vid_ids.extend(v)
+                        channel_ids.extend(c)
+                        tickers.extend(t)
+                        # Add id to ids_done list to determine which queries have been completed
+                        ids_done.append(ids[i])
+                # If we get to this point in the loop with no quota-related errors, all queries must have been processed, so break from outer loop
+                print("Queries complete! Breaking from loop...")
+                break
+        except QuotaExceededError:
+            queries = queries[query_index:]
+    
+    return vid_ids, channel_ids, tickers, ids_done
