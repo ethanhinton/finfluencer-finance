@@ -12,7 +12,7 @@ from googleapiclient.errors import HttpError
 
 async def main():
 
-    include_comments = True
+    include_comments = False
     transcripts = False
     pages_per_query = 4
     input_filename = "stocks_and_dates.xlsx"
@@ -50,46 +50,15 @@ async def main():
     # Create the queries
     queries = [ticker+" stock" for ticker in TICKERS]
 
-    # Get video, channel ids from search queries
-    # Each query retrieves a specified number of pages of search results (each page is 50 videos)
-    # IDEA: You know when to be careful with searches when you get to the last API key.
-    # Count the number of searches done (perhaps using 2 lists with pop()?) and when on last API key, use only for video and channel queries as these are guaranteed to be below quota
-    vid_ids = []
-    channel_ids = []
-    tickers = []
-    ids_done = []
-
+    # If fetching comments is enabled, significantly more API quota needs to be allocated to fetching these comments
+    # 5 API keys are allocated to fetching video data in this case, as opposed to 1 key in the case where comments are not collected
     if include_comments:
         VID_DATA_API_KEYS = [API_KEYS.pop() for i in range(5)]
     else:
         VID_DATA_API_KEYS = API_KEYS.pop()
-    
-    for i, API_KEY in enumerate(API_KEYS):
-        print(f"API Key {i+1} of {len(API_KEYS)}")
-        try:
-            with build("youtube", "v3", developerKey=API_KEY) as service:
-                print("Fetching Search Results...")
-                for i, query in enumerate(queries):
-                    print(query)
-                    print(ids[i])
-                    print(type(dates[i][0]))
-                    try:
-                        v, c, t = search_videos(service, query, date_to_RFC(dates[i][0]), date_to_RFC(dates[i][1]), order="date", pages=pages_per_query)
-                    except HttpError as e:
-                        if repr(e)[-18:-5] == "quotaExceeded":
-                            print("API Quota Exceeded! Trying a different API Key...")
-                            query_index = i
-                            raise QuotaExceededError
-                    else:
-                        vid_ids.extend(v)
-                        channel_ids.extend(c)
-                        tickers.extend(t)
-                        # Add id to ids_done list to determine which queries have been completed
-                        ids_done.append(ids[i])
-                print("Queries complete! Breaking from loop...")
-                break
-        except QuotaExceededError:
-            queries = queries[query_index:]
+
+    # Fetch video/channel ids, tickers, and ids of queries that have been processed
+    vid_ids, channel_ids, tickers, ids_done = search_queries(API_KEYS, queries, dates, ids, pages_per_query)
 
     # Set up async session object
     async with aiohttp.ClientSession() as session:
