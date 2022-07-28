@@ -1,5 +1,4 @@
 import asyncio
-from keys import API_KEY
 from exceptions import QuotaExceededError, APIError, CommentsDisabledError, check_keyerror_cause
 from functions import extract_channel_data, extract_vid_data
 
@@ -68,6 +67,8 @@ class AsyncYoutube:
                 check_keyerror_cause(response)
             except CommentsDisabledError:
                 return []
+            except QuotaExceededError:
+                return ["Comments could not be retrieved: API Quota Exceeded"]
 
         return list(map(lambda x: x['snippet']['topLevelComment']['snippet']['textOriginal'], items))
     
