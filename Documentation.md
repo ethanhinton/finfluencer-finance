@@ -9,41 +9,51 @@ This file contains the AsyncYoutube class which is used to make calls to the You
 ### AsyncYoutube (*Class*)
 Used to make YouTube Data API calls asynchronously.
 
+
 **self.session** (*Attribute*)
 
 Stores the HTTP session object from the aiohttp module.
+
 
 **self.api_key** (*Attribute*)
 
 Stores the YouTube Data API key.
 
+
 **self.base_url** (*Attribute*)
 
 Stores the base URL for YouTube Data API calls.
+
 
 **get_ids** (*Method*) (**Args**: queries(*list*), max_results(*int*, default=50), order(*str*, options="relevance", "date", default="date"), video_duration(*list*, default=["any"])) (Quota Cost = 100 per query and video duration) (REDUNDANT)
 
 Method to call a search query for multiple queries. Returns a list of video/channel ids and a list of tickers.
 
+
 **ids_multi_duration** (*Method*) (**Args**: query(*str*), max_results(*int*, default=50), order(*str*, options="relevance", "date", default="date"), video_duration(*list*, default=["short", "medium", "long"])) (REDUNDANT)
 
 Method to call a search query for multiple durations. Returns a list of video/channel ids and a list of tickers. Called by get_ids method.
+
 
 **get_comments** (*Method*) (**Args**: vid_id(*str*)) (Quota Cost = 1 per video)
 
 Method to get all comments for a single YouTube video.
 
+
 **get_comments_multi_videos** (*Method*) (**Args**: vid_ids(*list*))
 
 Calls get_comments for a list of multiple video ids.
+
 
 **get_subscribers** (*Method*) (**Args**: channel_ids(*list*)) (Quota Cost = 1 per 50 channels)
 
 Retrieves the number of subscribers for each channel in a list of channel ids. Raw API repsonse is cleaned using extract_channel_data function from functions.py and returned.
 
+
 **get_vid_data** (*Method*) (**Args**: vid_ids(*list*)) (Quota Cost = 1 per 50 videos)
 
 Retrieves data from the YouTube Data API about each video in a list of video ids. Raw API response is cleaned using the extract_vid_data function from functions.py and returned.
+
 
 ## functions.py
 
