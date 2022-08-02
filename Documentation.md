@@ -6,11 +6,11 @@ This document will detail each file included in the project and the functions/cl
 
 This file contains the AsyncYoutube class which is used to make calls to the YouTube data API asynchronously. This speeds up the retrieval of data from the API significantly as API calls are processed simultaneously. NOTE: Search requests that retrieve video/channel ids etc. are not performed asynchronously due to needing to utilise multiple API keys as a workaround for the lack of available API quota.
 
-### AsyncYoutube (*Class*)
+### **AsyncYoutube** (*Class*)
 Used to make YouTube Data API calls asynchronously.
 
 
-**self.session** (*Attribute*)
+#### self.session (*Attribute*)
 Stores the HTTP session object from the aiohttp module.
 
 
