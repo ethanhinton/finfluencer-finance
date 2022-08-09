@@ -116,18 +116,6 @@ def generate_dataframe(vid_data, comments_data, channel_data, tickers, transcrip
 
     return df.set_index(index)
 
-def sp500_tickers():
-    resp = requests.get('http://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
-    soup = bs.BeautifulSoup(resp.text, 'lxml')
-    table = soup.find('table', {'class': 'wikitable sortable'})
-    tickers = []
-    for row in table.findAll('tr')[1:]:
-        ticker = row.findAll('td')[0].text
-        tickers.append(ticker)
-    
-    tickers = list(map(lambda x: x[:-1], tickers))
-    
-    return tickers
 
 def check_for_data(filename):
     if os.path.exists(filename):
@@ -169,10 +157,6 @@ def get_run_time():
     run_time = datetime.now().strftime('%d/%m/%y %H:%M:%S')
     
     return run_time
-
-def calculate_number_stocks(api_quota):
-    cost_per_stock = 102
-    return int(api_quota // cost_per_stock)
 
 def date_to_RFC(date):
     return date.isoformat("T") + "Z"
