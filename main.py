@@ -12,7 +12,8 @@ from googleapiclient.errors import HttpError
 
 async def main():
 
-    include_comments = False
+    # Changeable variables
+    include_comments = False # Please leave as False, this does not output to Excel properly!
     transcripts = False
     pages_per_query = 4
     input_filename = "stocks_and_dates.xlsx"
@@ -55,16 +56,14 @@ async def main():
     if include_comments:
         VID_DATA_API_KEYS = [API_KEYS.pop() for i in range(5)]
     else:
-        VID_DATA_API_KEYS = API_KEYS.pop()
+        VID_DATA_API_KEYS = [API_KEYS.pop()]
 
     # Fetch video/channel ids, tickers, and ids of queries that have been processed
     vid_ids, channel_ids, tickers, ids_done = search_queries(API_KEYS, queries, dates, ids, pages_per_query)
 
     # Set up async session object
     async with aiohttp.ClientSession() as session:
-        print(VID_DATA_API_KEYS)
         api = AsyncYoutube(session, VID_DATA_API_KEYS.pop())
-        print(VID_DATA_API_KEYS)
         print(f"Fetching video data for {len(vid_ids)} videos...")
         vid_data = await api.get_video_data(vid_ids)
         channel_data = await api.get_subscribers(channel_ids)
