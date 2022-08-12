@@ -89,7 +89,30 @@ Returns a start and end date a specified number of days (*width*) either side of
 ### search_queries (*Function*) (Args: API_KEYS(*list*), queries(*list*), dates(*list), ids(*list*), pages_per_query(*int*))
 Calls search_request function for a list of queries, dates, etc. Returns a list of video/channel IDs, tickers, and ids of queries completed. This function dynamically changes API keys used for queries when quota is exceeded on an API key, this greatly increases capacity for query processing using multiple API keys.
 
+## main.py
 
+This file contains the main code for the program, located inside the main() function. This function is executed each time the program is run.
 
+### Prerequisite Requirements
 
+1. The program must be run in a virtual environment with all of the required packages installed. The environment.yml file can be used to create this environment using Anaconda, follow this link for details: https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html
 
+2. A file named keys.py must be in the same directory as the main.py file. This file must contain a variable called API_KEYS, this should be a list of API keys for the YouTube Data API.
+
+### How does the Program Work?
+
+At the top of the function, there are some variables that can be changed by the user to change certain parts of the program (e.g. input filename, output filename, number of pages retrieved per search query, etc.). Please DO NOT change the include_comments variable to True, as comments are not outputted well to Excel so will be truncated.
+
+In the next section, data from the input Excel file is loaded in, please make sure the Excel file is in the same format as the one I have provided (including a unique ID for each query and EA date in the format (dd/mm/yyyy) (you can ignore that the formatting gets changed to yyyy-mm-dd HH:MM:SS, the program does this itself)).
+
+Existing output data from previous runs is then checked for as we want to maintain this in the output file for when a search requires multiple runs of the program. If you do not want this to happen, delete the output file or specific results in the output file.
+
+The previous run time of the program is then checked. This is because it is highly likely that if the program was run in the last 24 hours, the API quota will be exceeded on the next run, if this happens with the API keys that are used to retrieve video data, the program will fail. The user will be prompted whether or not they want to continue if the program has been run in the past 24 hours. Once this stage is passed, the current time is stored in a file named "settings.txt" to be referenced as the previous run time the next time the program is run.
+
+The next stage of the program splits the available API keys into two groups (search and video), these are used for two different purposes: to search for videos and to gather video data. The number of API keys assigned to these tasks changes based on whether include_commments is True or False (it should be False though, as mentioned earlier).
+
+Search queries are then performed sequentially, and video/channel queries are performed asynchronously. Data is added to various lists to be processed into a pandas DataFrame before exporting.
+
+If the transcripts variable is set to True, the program will search sequentially though the video IDs and gather English transcrips if available. This will take time! as each video (of potentially 1000s!) is processed one-by-one.
+
+The pandas DataFrame is then created with all of the results, this is exported to the output Excel file. The input Excel file is then updated to change the "Done?" column to True for completed queries.
