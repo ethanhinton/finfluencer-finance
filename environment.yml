@@ -1,5 +1,8 @@
 name: finance-project
 channels:
+  - nilmtk
+  - https://conda.anaconda.org/nilmtk
+  - conda-forge
   - defaults
 dependencies:
   - bzip2=1.0.8=h1de35cc_0
